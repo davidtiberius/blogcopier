@@ -96,8 +96,8 @@ Return ONLY a JSON object with these exact keys:
 
     response = client.messages.create(
         model=MODEL,
-        max_tokens=1024,
-        thinking={"type": "adaptive"},
+        max_tokens=4096,
+        thinking={"type": "adaptive", "budget_tokens": 2048},
         system=system,
         messages=[{"role": "user", "content": user}],
     )
