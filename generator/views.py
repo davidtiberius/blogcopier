@@ -56,8 +56,12 @@ def generate(request):
         form.add_error(None, "Could not extract content from any of the provided URLs.")
         return render(request, "generator/index.html", {"form": form})
 
+    logger.info("Starting topic selection with %d scraped articles (titles: %s)",
+                len(articles), [a.get("title", "?") for a in articles])
     try:
         topic_info = pick_topic_and_style(articles, settings.ANTHROPIC_API_KEY)
+        logger.info("Topic selection succeeded: topic=%r, keys=%s",
+                     topic_info.get("topic"), list(topic_info.keys()))
     except Exception as exc:
         logger.exception("Topic selection failed")
         form.add_error(None, f"AI error during topic selection: {exc}")

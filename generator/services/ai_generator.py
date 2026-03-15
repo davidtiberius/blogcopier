@@ -90,6 +90,10 @@ Return ONLY a JSON object with these exact keys:
   "key_phrases": ["<3–5 recurring phrases or stylistic markers from the source articles>"]
 }}"""
 
+    logger.info("Requesting topic selection from Claude (model=%s)", MODEL)
+    logger.debug("Topic prompt length: %d chars, articles block length: %d chars",
+                 len(user), len(articles_block))
+
     response = client.messages.create(
         model=MODEL,
         max_tokens=1024,
@@ -98,6 +102,12 @@ Return ONLY a JSON object with these exact keys:
         messages=[{"role": "user", "content": user}],
     )
 
+    logger.info("Claude response: stop_reason=%s, usage=%s",
+                response.stop_reason, response.usage)
+    logger.debug("Response content blocks: %s",
+                 [(b.type, getattr(b, 'text', '')[:100] if b.type == 'text' else '...')
+                  for b in response.content])
+
     # Extract text block (thinking blocks may precede it)
     text = ""
     for block in response.content:
@@ -105,15 +115,32 @@ Return ONLY a JSON object with these exact keys:
             text = block.text
             break
 
+    if not text:
+        logger.error("No text block found in Claude response. Block types: %s",
+                     [b.type for b in response.content])
+        raise ValueError(
+            f"Claude returned no text content. stop_reason={response.stop_reason}, "
+            f"block_types={[b.type for b in response.content]}"
+        )
+
+    logger.debug("Raw text response (first 500 chars): %s", text[:500])
+
     try:
-        return json.loads(text)
-    except json.JSONDecodeError:
+        result = json.loads(text)
+        logger.info("Topic selected: %s", result.get("topic", "???"))
+        return result
+    except json.JSONDecodeError as exc:
+        logger.warning("Direct JSON parse failed: %s. Trying regex fallback.", exc)
         # Fallback if Claude wraps the JSON in markdown fences
         import re
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
-            return json.loads(match.group())
-        raise ValueError(f"Could not parse topic JSON from Claude response: {text[:300]}")
+            logger.debug("Regex extracted JSON (first 500 chars): %s", match.group()[:500])
+            result = json.loads(match.group())
+            logger.info("Topic selected (via fallback): %s", result.get("topic", "???"))
+            return result
+        logger.error("Could not parse topic JSON. Full response text:\n%s", text)
+        raise ValueError(f"Could not parse topic JSON from Claude response: {text[:500]}")
 
 
 def stream_generated_article(
