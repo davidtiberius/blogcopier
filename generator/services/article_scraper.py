@@ -8,9 +8,10 @@ logger = logging.getLogger(__name__)
 
 _HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (compatible; BlogCopier/1.0; +https://github.com/blogcopier)"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,*/*",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
 
@@ -21,11 +22,22 @@ _NOISE_TAGS = {
 }
 
 # CSS class/id keywords that signal navigation / sidebar / ad content
+# Use word boundaries (\b) to avoid false positives like "read" matching "ad"
 _NOISE_PATTERNS = re.compile(
-    r"(nav|menu|sidebar|footer|header|ad|advertisement|cookie|popup|"
-    r"social|share|related|comment|subscribe|newsletter|promo)",
+    r"\b(nav|menu|sidebar|footer|header|advert|advertisement|cookie|popup|"
+    r"social|share|related|comments?|subscribe|newsletter|promo)\b",
     re.IGNORECASE,
 )
+
+
+def _get_text_parts(container, min_len: int = 20) -> list[str]:
+    """Extract text parts from headings, paragraphs, and list items."""
+    parts = []
+    for el in container.find_all(["h1", "h2", "h3", "h4", "p", "li", "blockquote"]):
+        text = el.get_text(separator=" ", strip=True)
+        if len(text) >= min_len:
+            parts.append(text)
+    return parts
 
 
 def _extract_text(soup: BeautifulSoup) -> str:
@@ -45,25 +57,32 @@ def _extract_text(soup: BeautifulSoup) -> str:
             el.decompose()
 
     # Try to find the main content container
-    candidates = (
+    container = (
         soup.find("article")
         or soup.find("main")
         or soup.find(class_=re.compile(r"(article|post|content|entry|body)", re.I))
         or soup.find("div", id=re.compile(r"(article|post|content|entry|body)", re.I))
-        or soup.body
     )
 
-    if candidates is None:
+    if container:
+        parts = _get_text_parts(container)
+        if parts:
+            return "\n\n".join(parts)
+
+    # Fallback: try body with a lower minimum length threshold
+    body = soup.body
+    if body is None:
         return ""
 
-    # Get paragraphs and headings
-    parts = []
-    for el in candidates.find_all(["h1", "h2", "h3", "h4", "p", "li", "blockquote"]):
-        text = el.get_text(separator=" ", strip=True)
-        if len(text) > 20:  # skip very short fragments
-            parts.append(text)
+    parts = _get_text_parts(body, min_len=15)
+    if parts:
+        return "\n\n".join(parts)
 
-    return "\n\n".join(parts)
+    # Last resort: grab all visible text from body
+    text = body.get_text(separator="\n", strip=True)
+    # Filter out very short lines (likely menu items, buttons, etc.)
+    lines = [line.strip() for line in text.splitlines() if len(line.strip()) > 20]
+    return "\n\n".join(lines)
 
 
 def scrape_article(url: str) -> dict | None:
@@ -80,7 +99,7 @@ def scrape_article(url: str) -> dict | None:
         return None
 
     content_type = resp.headers.get("Content-Type", "")
-    if "html" not in content_type:
+    if "html" not in content_type and "text" not in content_type:
         logger.warning("Skipping non-HTML URL: %s (Content-Type: %s)", url, content_type)
         return None
 
