@@ -16,9 +16,21 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.db import connection
+from django.http import JsonResponse
 from django.urls import path, include
 
+
+def healthz(request):
+    try:
+        connection.ensure_connection()
+    except Exception as e:
+        return JsonResponse({"status": "error", "detail": str(e)}, status=503)
+    return JsonResponse({"status": "ok"})
+
+
 urlpatterns = [
+    path("healthz/", healthz, name="healthz"),
     path("admin/", admin.site.urls),
     path("", include("generator.urls")),
 ]
