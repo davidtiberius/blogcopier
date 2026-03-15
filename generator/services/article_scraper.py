@@ -36,6 +36,9 @@ def _extract_text(soup: BeautifulSoup) -> str:
 
     # Remove elements whose class/id looks like boilerplate
     for el in soup.find_all(True):
+        if el.parent is None:
+            # Already decomposed (e.g. child of a previously removed element)
+            continue
         classes = " ".join(el.get("class", []))
         el_id = el.get("id", "")
         if _NOISE_PATTERNS.search(classes) or _NOISE_PATTERNS.search(el_id):
