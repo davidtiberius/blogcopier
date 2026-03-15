@@ -49,7 +49,15 @@ class ArticleInputForm(forms.Form):
             if not raw:
                 self.add_error("article_urls", "Please provide at least one article URL.")
             else:
-                urls = [u.strip() for u in raw.splitlines() if u.strip()]
+                urls = []
+                for line in raw.splitlines():
+                    u = line.strip()
+                    if not u:
+                        continue
+                    # Add scheme if missing
+                    if not u.startswith(("http://", "https://")):
+                        u = "https://" + u
+                    urls.append(u)
                 if len(urls) < 1:
                     self.add_error("article_urls", "Please provide at least one article URL.")
                 cleaned["article_urls_list"] = urls
