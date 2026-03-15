@@ -1,0 +1,100 @@
+{% extends "generator/base.html" %}
+
+{% block title %}BlogCopier — Generate Jewellery Article{% endblock %}
+
+{% block content %}
+<h1>AI Jewellery Article Generator</h1>
+<p class="lead">
+  Provide an RSS feed or a list of article URLs. The AI will study the writing
+  style and generate a fresh jewellery article tuned to current trends and the
+  time of year.
+</p>
+
+{% if form.non_field_errors %}
+<ul class="errorlist">
+  {% for error in form.non_field_errors %}
+  <li>{{ error }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="{% url 'generator:generate' %}" id="main-form">
+    {% csrf_token %}
+
+    <!-- Input type selector -->
+    <div class="field">
+      <label>Source type</label>
+      <div class="radio-group" id="type-selector">
+        {% for radio in form.input_type %}
+        <label>
+          {{ radio.tag }}
+          {{ radio.choice_label }}
+        </label>
+        {% endfor %}
+      </div>
+      {% if form.input_type.errors %}
+      <ul class="errorlist">{% for e in form.input_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <!-- RSS URL panel -->
+    <div id="rss-panel" class="field">
+      <label for="{{ form.rss_url.id_for_label }}">{{ form.rss_url.label }}</label>
+      {{ form.rss_url }}
+      <p class="help">{{ form.rss_url.help_text }}</p>
+      {% if form.rss_url.errors %}
+      <ul class="errorlist">{% for e in form.rss_url.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <!-- URL list panel -->
+    <div id="urls-panel" class="field" style="display:none">
+      <label for="{{ form.article_urls.id_for_label }}">{{ form.article_urls.label }}</label>
+      {{ form.article_urls }}
+      <p class="help">{{ form.article_urls.help_text }}</p>
+      {% if form.article_urls.errors %}
+      <ul class="errorlist">{% for e in form.article_urls.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <button type="submit" class="btn" id="submit-btn">
+      &#10024; Analyse &amp; Generate Article
+    </button>
+  </form>
+</div>
+
+<div class="card" style="background:#0a0a1a; border-color:#2a2a3a;">
+  <h2 style="font-size:1rem; color:var(--muted); margin-bottom:.75rem;">HOW IT WORKS</h2>
+  <ol style="padding-left:1.2rem; font-family:'Arial',sans-serif; font-size:.9rem; color:var(--muted); line-height:2;">
+    <li>Paste an RSS feed URL <em>or</em> up to 10 article URLs</li>
+    <li>The app fetches and analyses each article's style, tone &amp; structure</li>
+    <li>Claude AI selects a trending jewellery topic suited to the current season</li>
+    <li>A new, original article is generated — same voice, different subject</li>
+  </ol>
+</div>
+
+<script>
+  const radios = document.querySelectorAll('input[name="input_type"]');
+  const rssPanel = document.getElementById('rss-panel');
+  const urlsPanel = document.getElementById('urls-panel');
+
+  function togglePanels() {
+    const val = document.querySelector('input[name="input_type"]:checked')?.value;
+    rssPanel.style.display  = val === 'rss'  ? '' : 'none';
+    urlsPanel.style.display = val === 'urls' ? '' : 'none';
+  }
+
+  radios.forEach(r => r.addEventListener('change', togglePanels));
+
+  // Restore state if server returned errors
+  togglePanels();
+
+  // Show spinner on submit
+  document.getElementById('main-form').addEventListener('submit', function() {
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Analysing articles…';
+  });
+</script>
+{% endblock %}

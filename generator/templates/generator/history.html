@@ -1,0 +1,56 @@
+{% extends "generator/base.html" %}
+
+{% block title %}Generation History — BlogCopier{% endblock %}
+
+{% block content %}
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+  <h1 style="margin:0;">Generation History</h1>
+  <a href="{% url 'generator:index' %}" class="btn" style="font-size:.85rem; padding:.5rem 1.2rem;">
+    + New Article
+  </a>
+</div>
+
+{% if generations %}
+<div class="card" style="padding:0; overflow:hidden;">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Topic</th>
+        <th>Source</th>
+        <th>Articles</th>
+        <th>View</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for gen in generations %}
+      <tr>
+        <td style="white-space:nowrap; color:var(--muted); font-size:.85rem;">
+          {{ gen.created_at|date:"M j, Y H:i" }}
+        </td>
+        <td>{{ gen.jewelry_topic }}</td>
+        <td>
+          <span class="badge">{{ gen.get_input_type_display }}</span>
+        </td>
+        <td style="text-align:center; color:var(--muted);">{{ gen.source_article_count }}</td>
+        <td>
+          {% if gen.generated_article %}
+          <a href="{% url 'generator:result' gen.id %}">View</a>
+          {% else %}
+          <span style="color:var(--muted); font-size:.85rem;">In progress</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center; color:var(--muted); padding:3rem;">
+  <p style="font-size:1.2rem;">No articles generated yet.</p>
+  <a href="{% url 'generator:index' %}" class="btn" style="margin-top:1rem; display:inline-block;">
+    Generate your first article
+  </a>
+</div>
+{% endif %}
+{% endblock %}
